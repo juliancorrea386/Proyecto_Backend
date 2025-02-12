@@ -162,7 +162,7 @@ app.get('/remisiones/:id_remision', (req, res) => {
 app.post('/remisiones', (req, res) => {
   const newRemision = req.body;
   const sqlRemision = 'INSERT INTO remision (fecha, N_Contrato, Id_rubro) VALUES (?, ?, ?)';
-  
+
   db.beginTransaction((err) => {
     if (err) {
       console.error('Error al iniciar la transacción:', err);
@@ -204,25 +204,35 @@ app.post('/remisiones', (req, res) => {
               res.status(500).send('Error al actualizar valor_Rubro_Consumido');
             });
           }
-
-          db.commit((err) => {
+          // Actualizar `valor_consumido` en la tabla `contratos`
+          const sqlUpdateContrato = 'UPDATE contratos SET valor_consumido = (SELECT SUM(valor_Rubro_Consumido) FROM contrato_rubro WHERE N_Contrato = ?) WHERE N_Contrato = ?';
+          db.query(sqlUpdateContrato, [newRemision.N_Contrato, newRemision.N_Contrato], (err, result) => {
             if (err) {
               return db.rollback(() => {
-                console.error('Error al confirmar la transacción:', err);
-                res.status(500).send('Error al confirmar la transacción');
+                console.error('Error al actualizar valor_consumido:', err);
+                res.status(500).send('Error al actualizar valor_consumido');
               });
             }
-            res.status(201).send('Remisión creada y valor_Rubro_Consumido actualizado');
+          });
+          
+            db.commit((err) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error('Error al confirmar la transacción:', err);
+                  res.status(500).send('Error al confirmar la transacción');
+                });
+              }
+              res.status(201).send('Remisión creada y valor_Rubro_Consumido actualizado');
+            });
           });
         });
       });
     });
   });
-});
 
-app.get('/remisiones_Edit/:id_remision', (req, res) => {
-  const { id_remision } = req.params;
-  const sql = `
+  app.get('/remisiones_Edit/:id_remision', (req, res) => {
+    const { id_remision } = req.params;
+    const sql = `
     SELECT r.id_remision, r.fecha, r.N_Contrato, rb.Id_rubro, rb.nombre AS rubro, rp.id_producto, p.nombre AS producto, rp.cantidad, rp.precio_costo, rp.precio_venta, p.estado
     FROM remision r
     JOIN rubro rb ON r.Id_rubro = rb.Id_rubro
@@ -230,129 +240,129 @@ app.get('/remisiones_Edit/:id_remision', (req, res) => {
     JOIN producto p ON rp.id_producto = p.id_producto
     WHERE r.id_remision = ?
   `;
-  db.query(sql, [id_remision], (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    console.log(result); // Verifica los datos aquí
-    res.json(result);
-  });
-});
-
-
-app.put('/remisiones_Edit/:id_remision', (req, res) => {
-  const { id_remision } = req.params;
-  const updatedRemision = req.body;
-  const sql = 'UPDATE remision SET fecha = ?, N_Contrato = ?, Id_rubro = ? WHERE id_remision = ?';
-
-  db.beginTransaction((err) => {
-    if (err) {
-      console.error('Error al iniciar la transacción:', err);
-      return res.status(500).send('Error al iniciar la transacción');
-    }
-
-    db.query(sql, [updatedRemision.fecha, updatedRemision.N_Contrato, updatedRemision.Id_rubro, id_remision], (err, result) => {
+    db.query(sql, [id_remision], (err, result) => {
       if (err) {
-        return db.rollback(() => {
-          console.error('Error al actualizar la remisión:', err);
-          res.status(500).send('Error al actualizar la remisión');
-        });
+        return res.status(500).send(err);
+      }
+      console.log(result); // Verifica los datos aquí
+      res.json(result);
+    });
+  });
+
+
+  app.put('/remisiones_Edit/:id_remision', (req, res) => {
+    const { id_remision } = req.params;
+    const updatedRemision = req.body;
+    const sql = 'UPDATE remision SET fecha = ?, N_Contrato = ?, Id_rubro = ? WHERE id_remision = ?';
+
+    db.beginTransaction((err) => {
+      if (err) {
+        console.error('Error al iniciar la transacción:', err);
+        return res.status(500).send('Error al iniciar la transacción');
       }
 
-      const deleteSql = 'DELETE FROM remision_producto WHERE id_remision = ?';
-      db.query(deleteSql, [id_remision], (err, result) => {
+      db.query(sql, [updatedRemision.fecha, updatedRemision.N_Contrato, updatedRemision.Id_rubro, id_remision], (err, result) => {
         if (err) {
           return db.rollback(() => {
-            console.error('Error al eliminar productos de la remisión:', err);
-            res.status(500).send('Error al eliminar productos de la remisión');
+            console.error('Error al actualizar la remisión:', err);
+            res.status(500).send('Error al actualizar la remisión');
           });
         }
 
-        const productos = updatedRemision.productos;
-        const insertSql = 'INSERT INTO remision_producto (id_remision, id_producto, cantidad, precio_venta, precio_costo, total) VALUES (?, ?, ?, ?, ?, ?)';
-        productos.forEach((producto, index) => {
-          producto.total = producto.cantidad * producto.valor_venta;
-          db.query(insertSql, [id_remision, producto.id_producto, producto.cantidad, producto.valor_venta, producto.valor_costo, producto.total], (err, result) => {
-            if (err) {
-              return db.rollback(() => {
-                console.error('Error al agregar productos a la remisión:', err);
-                res.status(500).send('Error al agregar productos a la remisión');
-              });
-            }
+        const deleteSql = 'DELETE FROM remision_producto WHERE id_remision = ?';
+        db.query(deleteSql, [id_remision], (err, result) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('Error al eliminar productos de la remisión:', err);
+              res.status(500).send('Error al eliminar productos de la remisión');
+            });
+          }
 
-            if (index === productos.length - 1) {
-              db.commit((err) => {
-                if (err) {
-                  return db.rollback(() => {
-                    console.error('Error al confirmar la transacción:', err);
-                    res.status(500).send('Error al confirmar la transacción');
-                  });
-                }
-                res.json(updatedRemision);
-              });
-            }
+          const productos = updatedRemision.productos;
+          const insertSql = 'INSERT INTO remision_producto (id_remision, id_producto, cantidad, precio_venta, precio_costo, total) VALUES (?, ?, ?, ?, ?, ?)';
+          productos.forEach((producto, index) => {
+            producto.total = producto.cantidad * producto.valor_venta;
+            db.query(insertSql, [id_remision, producto.id_producto, producto.cantidad, producto.valor_venta, producto.valor_costo, producto.total], (err, result) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error('Error al agregar productos a la remisión:', err);
+                  res.status(500).send('Error al agregar productos a la remisión');
+                });
+              }
+
+              if (index === productos.length - 1) {
+                db.commit((err) => {
+                  if (err) {
+                    return db.rollback(() => {
+                      console.error('Error al confirmar la transacción:', err);
+                      res.status(500).send('Error al confirmar la transacción');
+                    });
+                  }
+                  res.json(updatedRemision);
+                });
+              }
+            });
           });
         });
       });
     });
   });
-});
-// Ruta para obtener los productos por rubro
-app.get('/productos/rubro/:Id_rubro', (req, res) => {
-  const { Id_rubro } = req.params;
-  const sql = 'SELECT * FROM producto WHERE Id_rubro = ?';
-  db.query(sql, [Id_rubro], (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    res.json(result);
+  // Ruta para obtener los productos por rubro
+  app.get('/productos/rubro/:Id_rubro', (req, res) => {
+    const { Id_rubro } = req.params;
+    const sql = 'SELECT * FROM producto WHERE Id_rubro = ?';
+    db.query(sql, [Id_rubro], (err, result) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      res.json(result);
+    });
   });
-});
 
-// Ruta para obtener los rubros
-app.get('/rubros', (req, res) => {
-  const sql = 'SELECT * FROM rubro';
-  db.query(sql, (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    res.json(result);
+  // Ruta para obtener los rubros
+  app.get('/rubros', (req, res) => {
+    const sql = 'SELECT * FROM rubro';
+    db.query(sql, (err, result) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      res.json(result);
+    });
   });
-});
 
-// Ruta para crear un nuevo rubro
-app.post('/rubros', (req, res) => {
-  const newRubro = req.body;
-  const sql = 'INSERT INTO rubro (nombre) VALUES (?)';
-  db.query(sql, [newRubro.nombre], (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    newRubro.Id_rubro = result.insertId; // Obtener el ID generado por la base de datos
-    res.json(newRubro);
+  // Ruta para crear un nuevo rubro
+  app.post('/rubros', (req, res) => {
+    const newRubro = req.body;
+    const sql = 'INSERT INTO rubro (nombre) VALUES (?)';
+    db.query(sql, [newRubro.nombre], (err, result) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      newRubro.Id_rubro = result.insertId; // Obtener el ID generado por la base de datos
+      res.json(newRubro);
+    });
   });
-});
 
-// Ruta para obtener los rubros vinculados a un contrato
-app.get('/contratos/:N_Contrato/rubros', (req, res) => {
-  const { N_Contrato } = req.params;
-  const sql = `
+  // Ruta para obtener los rubros vinculados a un contrato
+  app.get('/contratos/:N_Contrato/rubros', (req, res) => {
+    const { N_Contrato } = req.params;
+    const sql = `
     SELECT r.Id_rubro, r.nombre
     FROM contrato_rubro cr
     JOIN rubro r ON cr.Id_rubro = r.Id_rubro
     WHERE cr.N_Contrato = ?
   `;
-  db.query(sql, [N_Contrato], (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    res.json(result);
+    db.query(sql, [N_Contrato], (err, result) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      res.json(result);
+    });
   });
-});
 
-app.get('/consolidado', (req, res) => {
-  const { fechaInicio, fechaFin, contrato, rubro } = req.query;
-  let sql = `
+  app.get('/consolidado', (req, res) => {
+    const { fechaInicio, fechaFin, contrato, rubro } = req.query;
+    let sql = `
     SELECT r.id_remision, r.fecha, r.N_Contrato, rb.nombre AS rubro, p.nombre AS producto, rp.cantidad, rp.precio_costo, rp.precio_venta AS valor_venta, rp.total, cr.valor_Rubro
     FROM remision r
     JOIN remision_producto rp ON r.id_remision = rp.id_remision
@@ -362,26 +372,26 @@ app.get('/consolidado', (req, res) => {
     WHERE r.fecha BETWEEN ? AND ?
   `;
 
-  const params = [fechaInicio, fechaFin];
+    const params = [fechaInicio, fechaFin];
 
-  if (contrato) {
-    sql += ' AND r.N_Contrato = ?';
-    params.push(contrato);
-  }
-
-  if (rubro) {
-    sql += ' AND rb.Id_rubro = ?';
-    params.push(rubro);
-  }
-
-  db.query(sql, params, (err, result) => {
-    if (err) {
-      return res.status(500).send(err);
+    if (contrato) {
+      sql += ' AND r.N_Contrato = ?';
+      params.push(contrato);
     }
-    res.json(result);
-  });
-});
 
-app.listen(port, () => {
-  console.log(`Servidor corriendo en http://localhost:${port}`);
-});
+    if (rubro) {
+      sql += ' AND rb.Id_rubro = ?';
+      params.push(rubro);
+    }
+
+    db.query(sql, params, (err, result) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      res.json(result);
+    });
+  });
+
+  app.listen(port, () => {
+    console.log(`Servidor corriendo en http://localhost:${port}`);
+  });
