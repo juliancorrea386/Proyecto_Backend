@@ -1,14 +1,15 @@
 const express = require('express');
+const fileUpload = require('express-fileupload');
 const mysql = require('mysql');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3001;
 const bodyParser = require('body-parser');
-
+const XLSX = require('xlsx');
 // Configurar CORS
 app.use(cors());
 app.use(bodyParser.json());
-
+app.use(fileUpload());
 // Configurar la conexión a MySQL
 const db = mysql.createConnection({
   host: 'b5uahwru1xyik6x9uggw-mysql.services.clever-cloud.com',
@@ -16,6 +17,7 @@ const db = mysql.createConnection({
   password: 'DptUvBrLb8UsdSKT3ZWf',
   database: 'b5uahwru1xyik6x9uggw'
 });
+
 
 db.connect((err) => {
   if (err) {
@@ -96,6 +98,41 @@ app.get('/productos', (req, res) => {
     }
     res.json(result);
 
+  });
+});
+
+app.post('/upload', (req, res) => {
+  if (!req.files || Object.keys(req.files).length === 0) {
+    return res.status(400).send('No files were uploaded.');
+  }
+
+  const file = req.files.file;
+  const Id_rubro = req.body.Id_rubro; // Obtener Id_rubro del cuerpo de la solicitud
+  const workbook = XLSX.read(file.data, { type: 'buffer' });
+  const sheetName = workbook.SheetNames[0];
+  const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+  const sql = `
+    SELECT p.id_producto, p.nombre, p.valor_costo, p.valor_venta, p.estado, r.nombre AS rubro_nombre, p.Id_rubro
+    FROM producto p
+    LEFT JOIN rubro r ON p.Id_rubro = r.Id_rubro
+    WHERE p.Id_rubro = ?
+  `;
+
+  db.query(sql, [Id_rubro], (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+
+    const productosConCantidad = result.map(producto => {
+      const productoExcel = worksheet.find(item => item.Nombre === producto.nombre);
+      return {
+        ...producto,
+        cantidad: productoExcel ? productoExcel.Cantidad : 0
+      };
+    });
+
+    res.json(productosConCantidad);
   });
 });
 
@@ -214,7 +251,7 @@ app.post('/remisiones', (req, res) => {
               });
             }
           });
-          
+
             db.commit((err) => {
               if (err) {
                 return db.rollback(() => {
