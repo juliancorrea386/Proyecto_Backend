@@ -3,7 +3,7 @@ const fileUpload = require('express-fileupload');
 const mysql = require('mysql');
 const cors = require('cors');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3001;
 const bodyParser = require('body-parser');
 const XLSX = require('xlsx');
 // Configurar CORS
