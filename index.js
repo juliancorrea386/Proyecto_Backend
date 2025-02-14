@@ -12,10 +12,10 @@ app.use(bodyParser.json());
 app.use(fileUpload());
 // Configurar la conexión a MySQL
 const db = mysql.createConnection({
-  host: 'b5uahwru1xyik6x9uggw-mysql.services.clever-cloud.com',
-  user: 'u61toaxgmskpip7f',
-  password: 'DptUvBrLb8UsdSKT3ZWf',
-  database: 'b5uahwru1xyik6x9uggw',
+  host: 'srv942.hstgr.io',
+  user: 'u457491761_FreskoHogar',
+  password: 'Fresko6194',
+  database: 'u457491761_db_remision',
   reconnect: true  // Esto habilita la reconexión automática
 });
 
@@ -282,7 +282,6 @@ app.post('/remisiones', (req, res) => {
       if (err) {
         return res.status(500).send(err);
       }
-      console.log(result); // Verifica los datos aquí
       res.json(result);
     });
   });
