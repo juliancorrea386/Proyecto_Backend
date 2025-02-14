@@ -12,10 +12,10 @@ app.use(bodyParser.json());
 app.use(fileUpload());
 // Configurar la conexión a MySQL
 const db = mysql.createConnection({
-  host: 'srv942.hstgr.io',
-  user: 'u457491761_FreskoHogar',
-  password: 'Fresko6194',
-  database: 'u457491761_db_remision',
+  host: 'b5uahwru1xyik6x9uggw-mysql.services.clever-cloud.com',
+  user: 'u61toaxgmskpip7f',
+  password: 'DptUvBrLb8UsdSKT3ZWf',
+  database: 'b5uahwru1xyik6x9uggw',
   reconnect: true  // Esto habilita la reconexión automática
 });
 
