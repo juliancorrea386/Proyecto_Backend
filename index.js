@@ -15,7 +15,8 @@ const db = mysql.createConnection({
   host: 'b5uahwru1xyik6x9uggw-mysql.services.clever-cloud.com',
   user: 'u61toaxgmskpip7f',
   password: 'DptUvBrLb8UsdSKT3ZWf',
-  database: 'b5uahwru1xyik6x9uggw'
+  database: 'b5uahwru1xyik6x9uggw',
+  reconnect: true  // Esto habilita la reconexión automática
 });
 
 
