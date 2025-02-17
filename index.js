@@ -2,6 +2,7 @@ const express = require('express');
 const fileUpload = require('express-fileupload');
 const mysql = require('mysql');
 const cors = require('cors');
+const bcrypt = require('bcrypt'); // Importa bcrypt
 const app = express();
 const port = process.env.PORT || 3001;
 const bodyParser = require('body-parser');
@@ -25,6 +26,60 @@ db.connect((err) => {
     throw err;
   }
   console.log('Conectado a MySQL');
+});
+
+// Ruta para crear un nuevo usuario
+app.post('/usuarios', (req, res) => {
+  const { N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado } = req.body;
+  const saltRounds = 10;
+
+  bcrypt.hash(Contrasena, saltRounds, (err, hash) => {
+    if (err) {
+      console.error('Error al cifrar la contraseña:', err);
+      return res.status(500).send('Error al cifrar la contraseña');
+    }
+
+    const sql = 'INSERT INTO Usuarios (N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, hash, Estado], (err, result) => {
+      if (err) {
+        console.error('Error al crear el usuario:', err);
+        return res.status(500).send('Error al crear el usuario');
+      }
+      res.status(201).send('Usuario creado exitosamente');
+    });
+  });
+});
+
+// Ruta para autenticar al usuario
+app.post('/login', (req, res) => {
+  const { Usuario, Contrasena } = req.body;
+
+  const sql = 'SELECT * FROM Usuarios WHERE Usuario = ?';
+  db.query(sql, [Usuario], (err, results) => {
+    if (err) {
+      console.error('Error al buscar el usuario:', err);
+      return res.status(500).send('Error al buscar el usuario');
+    }
+
+    if (results.length === 0) {
+      return res.status(401).send('Usuario no encontrado');
+    }
+
+    const user = results[0];
+
+    bcrypt.compare(Contrasena, user.Contrasena, (err, isMatch) => {
+      if (err) {
+        console.error('Error al comparar las contraseñas:', err);
+        return res.status(500).send('Error al comparar las contraseñas');
+      }
+
+      if (!isMatch) {
+        return res.status(401).send('Contraseña incorrecta');
+      }
+
+      res.status(200).send('Autenticación exitosa');
+    });
+  });
 });
 
 // Ruta para crear un nuevo contrato con rubros
