@@ -30,7 +30,7 @@ db.connect((err) => {
 
 // Ruta para crear un nuevo usuario
 app.post('/usuarios', (req, res) => {
-  const { N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado } = req.body;
+  const { N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado, Rol} = req.body;
   const saltRounds = 10;
 
   bcrypt.hash(Contrasena, saltRounds, (err, hash) => {
@@ -39,8 +39,8 @@ app.post('/usuarios', (req, res) => {
       return res.status(500).send('Error al cifrar la contraseña');
     }
 
-    const sql = 'INSERT INTO Usuarios (N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    db.query(sql, [N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, hash, Estado], (err, result) => {
+    const sql = 'INSERT INTO Usuarios (N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, Contrasena, Estado, Rol) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [N_documento, Nombres, Apellidos, Correo, Telefono, Usuario, hash, Estado, Rol], (err, result) => {
       if (err) {
         console.error('Error al crear el usuario:', err);
         return res.status(500).send('Error al crear el usuario');
@@ -77,11 +77,10 @@ app.post('/login', (req, res) => {
         return res.status(401).send('Contraseña incorrecta');
       }
 
-      res.status(200).send('Autenticación exitosa');
+      res.status(200).json({ message: 'Autenticación exitosa', rol: user.Rol });
     });
   });
 });
-
 // Ruta para crear un nuevo contrato con rubros
 app.post('/contratos', (req, res) => {
   const newContrato = req.body;
